@@ -1,0 +1,4 @@
+# CI-only constraint overrides to dodge bad historical uvicorn metadata.
+uvicorn==0.23.2
+python-dotenv==1.0.1
+click==8.1.7
