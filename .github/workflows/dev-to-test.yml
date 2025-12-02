@@ -23,7 +23,7 @@ jobs:
           pip install -c ci-constraints.txt \
             mlflow==3.6.0 scikit-learn==1.7.2 \
             pandas pyarrow numpy joblib click==8.1.7 \
-            "uvicorn[standard]==0.23.2" "python-dotenv==1.0.1" cml
+            "uvicorn[standard]==0.23.2" "python-dotenv==1.0.1"
       - name: Train (create sample data if missing)
         run: |
           python - <<'PY'
@@ -89,19 +89,20 @@ jobs:
               if new_metrics["rmse"] > prod_rmse:
                   raise SystemExit(f"New RMSE {new_metrics['rmse']} is worse than prod {prod_rmse}")
           PY
-      - name: CML comment (metrics)
-        env:
-          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python - <<'PY'
-          import json
-          with open("metrics.json", "r", encoding="utf-8") as f:
-              m = json.load(f)
-          with open("report.md", "w", encoding="utf-8") as f:
-              f.write("## Model metrics\n")
-              f.write(f"- run_id: {m.get('run_id')}\n")
-              f.write(f"- rmse: {m.get('rmse')}\n")
-              f.write(f"- mae: {m.get('mae')}\n")
-              f.write(f"- r2: {m.get('r2')}\n")
-          PY
-          cml comment report.md
+      - name: Comment metrics on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('metrics.json', 'utf8'));
+            const body = `## Model metrics
+- run_id: ${m.run_id}
+- rmse: ${m.rmse}
+- mae: ${m.mae}
+- r2: ${m.r2}`;
+            await github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
