@@ -74,3 +74,4 @@ dvc push  # executed by DAG as well
 - Profiling step is skipped automatically if `ydata-profiling` is absent.  
 - Object storage upload is skipped if `OBJECT_STORE_BUCKET` is unset.  
 - Ensure `dvc` binary is on PATH for the scheduler; otherwise the DAG will fail in `dvc_track`.
+- for check the chnage in pull requests
