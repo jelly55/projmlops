@@ -1,0 +1,102 @@
+name: Dev to Test - Train & Compare
+
+on:
+  pull_request:
+    branches: [test]
+
+jobs:
+  train-and-compare:
+    runs-on: ubuntu-latest
+    env:
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+      MODEL_NAME: weather_rf_4h
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install -r requirements.txt mlflow==3.6.0 scikit-learn==1.7.2 cml
+      - name: Train (create sample data if missing)
+        run: |
+          python - <<'PY'
+          import os, pandas as pd, numpy as np, train, json
+          os.makedirs("data/processed", exist_ok=True)
+          proc = "data/processed/weather_processed_latest.parquet"
+          if not os.path.exists(proc):
+              # Build a tiny synthetic dataset matching transform outputs
+              rows = []
+              base_ts = 1700000000
+              for i in range(8):
+                  ts = base_ts + i * 3600
+                  temp = 20 + i * 0.1
+                  row = {
+                      "time_epoch": ts,
+                      "temp_c": temp,
+                      "humidity": 60 + i,
+                      "wind_kph": 10 + i * 0.2,
+                  }
+                  rows.append(row)
+              df = pd.DataFrame(rows)
+              df["timestamp"] = pd.to_datetime(df["time_epoch"], unit="s", utc=True)
+              df = df.sort_values("timestamp")
+              df["hour"] = df["timestamp"].dt.hour
+              df["dayofweek"] = df["timestamp"].dt.dayofweek
+              df["is_weekend"] = df["dayofweek"] >= 5
+              df["lag_temp_1h"] = df["temp_c"].shift(1)
+              df["lag_temp_2h"] = df["temp_c"].shift(2)
+              df["rolling_temp_3h"] = df["temp_c"].rolling(window=3, min_periods=1).mean()
+              df["lag_humidity_1h"] = df["humidity"].shift(1)
+              df["temp_c_t_plus_4h"] = df["temp_c"].shift(-4)
+              df["temp_c_t_plus_6h"] = df["temp_c"].shift(-6)
+              df = df.dropna(subset=["temp_c_t_plus_4h", "temp_c_t_plus_6h"])
+              df.to_parquet(proc, index=False)
+              print(f"Created synthetic {proc}")
+          run_id, metrics = train.train_and_log_model(
+              proc, tracking_uri=os.getenv("MLFLOW_TRACKING_URI"), return_metrics=True
+          )
+          print("run_id", run_id)
+          with open("metrics.json", "w", encoding="utf-8") as f:
+              json.dump({"run_id": run_id, **metrics}, f)
+          PY
+      - name: Compare against prod model (registry)
+        run: |
+          python - <<'PY'
+          import os, json, mlflow
+          from mlflow.tracking import MlflowClient
+          model_name = os.getenv("MODEL_NAME", "weather_rf_4h")
+          with open("metrics.json", "r", encoding="utf-8") as f:
+              new_metrics = json.load(f)
+          client = MlflowClient()
+          prod_rmse = None
+          try:
+              versions = client.get_latest_versions(model_name, stages=["Production"])
+              if versions:
+                  prod_run = client.get_run(versions[0].run_id)
+                  prod_rmse = prod_run.data.metrics.get("rmse")
+          except Exception as exc:
+              print(f"Warning: could not fetch prod metrics: {exc}")
+          print("New metrics:", new_metrics)
+          print("Prod rmse:", prod_rmse)
+          if prod_rmse is not None and new_metrics.get("rmse") is not None:
+              if new_metrics["rmse"] > prod_rmse:
+                  raise SystemExit(f"New RMSE {new_metrics['rmse']} is worse than prod {prod_rmse}")
+          PY
+      - name: CML comment (metrics)
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          with open("metrics.json", "r", encoding="utf-8") as f:
+              m = json.load(f)
+          with open("report.md", "w", encoding="utf-8") as f:
+              f.write("## Model metrics\n")
+              f.write(f"- run_id: {m.get('run_id')}\n")
+              f.write(f"- rmse: {m.get('rmse')}\n")
+              f.write(f"- mae: {m.get('mae')}\n")
+              f.write(f"- r2: {m.get('r2')}\n")
+          PY
+          cml comment report.md

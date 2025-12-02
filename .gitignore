@@ -1,0 +1,21 @@
+# Python / virtualenv
+.venv/
+__pycache__/
+*.pyc
+
+# Local env files
+.env
+env.docker
+
+# Airflow / data artifacts
+logs/
+data/raw/
+data/processed/
+reports/
+
+# DVC cache
+.dvc/cache/
+.dvc/tmp/
+
+# Local binaries/tools
+bin/

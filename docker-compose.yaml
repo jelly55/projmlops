@@ -1,0 +1,43 @@
+version: "3.9"
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3
+  env_file:
+    - ./env.docker
+  environment:
+    AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__FERNET_KEY: "-lSz6YpUqLm9R2Y9Yq30G5T9_EefpVlSByFxflV022I="
+    _PIP_ADDITIONAL_REQUIREMENTS: "dvc==3.64.1 dvc-s3==3.2.2 mlflow scikit-learn"
+  volumes:
+    - airflow_home:/opt/airflow
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./data:/opt/airflow/data
+    - ./reports:/opt/airflow/reports
+    - ./train.py:/opt/airflow/train.py
+    - ./env.docker:/opt/airflow/.env
+  user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-0}"
+services:
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports: ["8080:8080"]
+    depends_on: [airflow-init]
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on: [airflow-init]
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        . /opt/airflow/.env && \
+        airflow db init && \
+        airflow users create --username admin --password admin --firstname a --lastname a --role Admin --email a@a.com || true
+    restart: "no"
+
+volumes:
+  airflow_home:

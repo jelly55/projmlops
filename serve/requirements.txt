@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+mlflow==3.6.0
+joblib

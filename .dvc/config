@@ -1,0 +1,9 @@
+[core]
+    no_scm = True
+    remote = rps-remote
+['remote "rps-remote"']
+    url = s3://rps-data
+    endpointurl = http://localhost:9000
+    access_key_id = minio
+    secret_access_key = minio123
+    use_ssl = false
