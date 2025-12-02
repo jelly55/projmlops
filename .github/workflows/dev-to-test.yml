@@ -18,7 +18,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install deps
-        run: pip install -r requirements.txt mlflow==3.6.0 scikit-learn==1.7.2 cml
+        run: |
+          pip install "uvicorn[standard]==0.23.2" "python-dotenv==1.0.1"
+          pip install -r requirements.txt mlflow==3.6.0 scikit-learn==1.7.2 cml
       - name: Train (create sample data if missing)
         run: |
           python - <<'PY'
