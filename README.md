@@ -3,12 +3,13 @@
 This project builds a production-style MLOps pipeline with automated ETL, model training, CI/CD, and monitoring. The system uses WeatherAPI hourly forecasts to predict temperature 4-6 hours ahead, with complete data versioning (DVC), experiment tracking (MLflow), automated deployments (Docker), and real-time monitoring (Prometheus/Grafana).
 
 ## Project Architecture
-- **Data Pipeline**: Apache Airflow DAG for ETL and feature engineering
-- **Model Training**: Automated RandomForest training with MLflow tracking
-- **CI/CD**: GitHub Actions workflows with model comparison and Docker deployment
-- **Model Registry**: MLflow Model Registry with Production stage management
-- **Deployment**: Containerized FastAPI service with health checks
-- **Monitoring**: Prometheus metrics + Grafana dashboards (Phase IV)
+- **Data Pipeline**: Apache Airflow DAG for automated ETL and feature engineering
+- **Model Training**: RandomForest regressor with automated MLflow experiment tracking
+- **CI/CD**: GitHub Actions workflows with automated model comparison and Docker deployment
+- **Model Registry**: MLflow Model Registry with automated versioning and Production stage management
+- **Deployment**: Containerized FastAPI prediction service with health checks
+- **Monitoring**: Prometheus metrics collection + Grafana dashboards (Phase IV)
+- **Data Versioning**: DVC for dataset versioning with remote storage integration
 
 ## Prerequisites
 - Python 3.9+ with Apache Airflow 2.8+.
