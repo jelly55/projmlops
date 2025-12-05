@@ -1,0 +1,73 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: MLOps Alerts
+    folder: Alerts
+    interval: 1m
+    rules:
+      - uid: high-latency-alert
+        title: High Prediction Latency
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'rate(prediction_latency_seconds_sum{endpoint="/predict"}[1m]) / rate(prediction_latency_seconds_count{endpoint="/predict"}[1m]) > 0.5'
+              refId: A
+        noDataState: NoData
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          description: 'Prediction API latency is above 500ms. Current value: {{ $values.A }}'
+          summary: High latency detected in prediction API
+        labels:
+          severity: warning
+          service: weather-api
+
+      - uid: data-drift-alert
+        title: High Data Drift Detected
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'data_drift_ratio > 0.3'
+              refId: A
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          description: 'Data drift ratio is above 30%. Current value: {{ $values.A }}'
+          summary: Significant data drift detected
+        labels:
+          severity: critical
+          service: weather-api
+
+      - uid: high-error-rate-alert
+        title: High Error Rate
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'rate(prediction_requests_total{endpoint="/predict", status="error"}[5m]) > 0.1'
+              refId: A
+        noDataState: NoData
+        execErrState: Alerting
+        for: 2m
+        annotations:
+          description: 'Error rate is above 0.1 req/sec. Current value: {{ $values.A }}'
+          summary: High error rate in prediction API
+        labels:
+          severity: critical
+          service: weather-api

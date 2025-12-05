@@ -6,6 +6,7 @@ __pycache__/
 # Local env files
 .env
 env.docker
+monitoring/.env
 
 # Airflow / data artifacts
 logs/
