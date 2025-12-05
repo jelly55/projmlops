@@ -1,6 +1,15 @@
-# Real-Time Predictive System (Weather) - Airflow DAG
+# Real-Time Predictive System (Weather) - MLOps Pipeline
 
-This project builds a production-style ETL + retraining dataset pipeline around WeatherAPI hourly forecasts. The DAG runs daily, ingests live data, enforces data quality, engineers time-series features for 4–6 hour temperature forecasting, generates a profiling report, pushes artifacts to object storage, and versions the processed dataset with DVC.
+This project builds a production-style MLOps pipeline with automated ETL, model training, CI/CD, and monitoring. The system uses WeatherAPI hourly forecasts to predict temperature 4-6 hours ahead, with complete data versioning (DVC), experiment tracking (MLflow), automated deployments (Docker), and real-time monitoring (Prometheus/Grafana).
+
+## Project Architecture
+- **Data Pipeline**: Apache Airflow DAG for automated ETL and feature engineering
+- **Model Training**: RandomForest regressor with automated MLflow experiment tracking
+- **CI/CD**: GitHub Actions workflows with automated model comparison and Docker deployment
+- **Model Registry**: MLflow Model Registry with automated versioning and Production stage management
+- **Deployment**: Containerized FastAPI prediction service with health checks
+- **Monitoring**: Prometheus metrics collection + Grafana dashboards (Phase IV)
+- **Data Versioning**: DVC for dataset versioning with remote storage integration
 
 ## Prerequisites
 - Python 3.9+ with Apache Airflow 2.8+.
@@ -74,3 +83,4 @@ dvc push  # executed by DAG as well
 - Profiling step is skipped automatically if `ydata-profiling` is absent.  
 - Object storage upload is skipped if `OBJECT_STORE_BUCKET` is unset.  
 - Ensure `dvc` binary is on PATH for the scheduler; otherwise the DAG will fail in `dvc_track`.
+- for check the chnage in pull requests
