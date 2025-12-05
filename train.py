@@ -17,6 +17,8 @@ def train_and_log_model(
     tracking_uri: Optional[str] = None,
     run_name: str = "weather_rf_4h",
     return_metrics: bool = False,
+    register_model: bool = True,
+    model_name: str = "weather_rf_4h",
 ) -> str | tuple:
     """
     Train a simple RandomForestRegressor on processed data and log to MLflow.
@@ -25,9 +27,12 @@ def train_and_log_model(
         processed_path: Path to processed parquet produced by the DAG.
         tracking_uri: Optional MLflow tracking URI (e.g., Dagshub). If None, uses env/MLflow default.
         run_name: Name for the MLflow run.
+        return_metrics: If True, return (run_id, metrics) tuple instead of just run_id.
+        register_model: If True, register the model to MLflow Model Registry.
+        model_name: Name for the registered model in MLflow Model Registry.
 
     Returns:
-        The MLflow run_id.
+        The MLflow run_id, or (run_id, metrics) if return_metrics=True.
     """
     import pandas as pd
     from sklearn.ensemble import RandomForestRegressor
@@ -82,15 +87,53 @@ def train_and_log_model(
             mlflow.log_metric(k, v)
         mlflow.log_param("processed_path", processed_path)
         mlflow.log_param("features", ",".join(numeric_cols))
-        # Dagshub's MLflow endpoint may not support the new "logged model" API.
-        # Save locally and log as a plain artifact instead of mlflow.sklearn.log_model.
-        from tempfile import TemporaryDirectory
-        import joblib
 
-        with TemporaryDirectory() as tmpdir:
-            model_path = Path(tmpdir) / "model.pkl"
-            joblib.dump(model, model_path)
-            mlflow.log_artifact(str(model_path), artifact_path="model")
+        # Log model using mlflow.sklearn for better Model Registry support
+        try:
+            # Try using mlflow.sklearn.log_model for proper model registration
+            mlflow.sklearn.log_model(
+                sk_model=model,
+                artifact_path="model",
+                registered_model_name=model_name if register_model else None,
+            )
+            print(f"Model logged using mlflow.sklearn.log_model")
+            if register_model:
+                print(f"Model registered to Model Registry as '{model_name}'")
+        except Exception as e:
+            # Fallback: log as artifact and register manually
+            print(f"Warning: mlflow.sklearn.log_model failed ({e}). Using fallback method.")
+            from tempfile import TemporaryDirectory
+            import joblib
+
+            with TemporaryDirectory() as tmpdir:
+                model_path = Path(tmpdir) / "model.pkl"
+                joblib.dump(model, model_path)
+                mlflow.log_artifact(str(model_path), artifact_path="model")
+
+            # Manual model registration if requested
+            if register_model:
+                try:
+                    from mlflow.tracking import MlflowClient
+                    client = MlflowClient()
+                    model_uri = f"runs:/{run.info.run_id}/model"
+                    client.create_registered_model(model_name)
+                    print(f"Created registered model '{model_name}'")
+                except Exception as reg_error:
+                    if "RESOURCE_ALREADY_EXISTS" in str(reg_error):
+                        print(f"Model '{model_name}' already exists in registry")
+                    else:
+                        print(f"Warning: Could not create registered model: {reg_error}")
+
+                try:
+                    model_version = client.create_model_version(
+                        name=model_name,
+                        source=model_uri,
+                        run_id=run.info.run_id,
+                    )
+                    print(f"Registered model version {model_version.version} for '{model_name}'")
+                except Exception as ver_error:
+                    print(f"Warning: Could not register model version: {ver_error}")
+
     return (run.info.run_id, metrics) if return_metrics else run.info.run_id
 
 
